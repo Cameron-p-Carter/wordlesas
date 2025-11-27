@@ -126,13 +126,13 @@ export default function WordleGame() {
     setGuesses(newGuesses);
 
     const isCorrect = currentGuess.toUpperCase() === game.word.toUpperCase();
-    const isLastGuess = newGuesses.length === 6;
+    const isLastGuess = newGuesses.length === 5;
 
     if (isCorrect || isLastGuess) {
       setGameOver(true);
       setWon(isCorrect);
 
-      // Calculate points
+      // Calculate points: 1 guess = 5 points, 2 = 4, 3 = 3, 4 = 2, 5 = 1, fail = 0
       let points = 0;
       if (isCorrect) {
         points = 6 - newGuesses.length;
@@ -149,7 +149,7 @@ export default function WordleGame() {
           won: isCorrect,
         });
 
-        setMessage(isCorrect ? `Congratulations! You got it in ${newGuesses.length} guesses!` : `Game Over! The word was ${game.word.toUpperCase()}`);
+        setMessage(isCorrect ? `Congratulations! You got it in ${newGuesses.length} ${newGuesses.length === 1 ? 'guess' : 'guesses'}!` : `Game Over! The word was ${game.word.toUpperCase()}`);
       } catch (error) {
         console.error('Error saving score:', error);
       }
@@ -219,9 +219,9 @@ export default function WordleGame() {
     );
   }
 
-  // Create grid of 6 rows
+  // Create grid of 5 rows
   const rows = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     if (i < guesses.length) {
       rows.push(guesses[i]);
     } else if (i === guesses.length) {

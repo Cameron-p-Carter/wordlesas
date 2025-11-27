@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,13 +45,24 @@ export default function Home() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold">Wordle Clone</CardTitle>
-            <CardDescription>
-              {isRegistering ? 'Create a new account to start playing' : 'Welcome back! Sign in to continue'}
-            </CardDescription>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-white via-blue-50 to-cyan-50">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <Image
+                src="/images/logos/S@S_Logo_Mark_RGB.svg"
+                alt="Software@Scale Logo"
+                width={80}
+                height={80}
+                priority
+              />
+            </div>
+            <div>
+              <CardTitle className="text-3xl font-bold text-primary">Software@Scale Wordle</CardTitle>
+              <CardDescription className="mt-2">
+                {isRegistering ? 'Create a new account to start playing' : 'Welcome back! Sign in to continue'}
+              </CardDescription>
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -62,6 +74,7 @@ export default function Home() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter your name"
+                  className="h-11"
                 />
               </div>
 
@@ -71,7 +84,7 @@ export default function Home() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full h-11 text-base">
                 {isRegistering ? 'Register' : 'Login'}
               </Button>
             </form>
@@ -93,15 +106,22 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-      <nav className="border-b bg-white/80 backdrop-blur-sm">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-white via-blue-50 to-cyan-50">
+      <nav className="border-b bg-white/90 backdrop-blur-sm shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold">Wordle Clone</h1>
+          <div className="flex h-20 justify-between">
+            <div className="flex items-center space-x-3">
+              <Image
+                src="/images/logos/S@S_Logo_Mark_RGB.svg"
+                alt="Software@Scale Logo"
+                width={50}
+                height={50}
+                priority
+              />
+              <h1 className="text-xl font-bold text-primary">Software@Scale Wordle</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">Welcome, {user.name}!</span>
+              <span className="text-sm text-muted-foreground">Welcome, <span className="font-semibold text-foreground">{user.name}</span></span>
               {user.is_admin && (
                 <Button asChild variant="secondary" size="sm">
                   <Link href="/admin">Admin</Link>
@@ -115,25 +135,42 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className="flex flex-1 items-center justify-center px-4 py-8">
-        <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
-          <Card className="transition-all hover:shadow-lg hover:scale-[1.02]">
-            <Link href="/play" className="block">
-              <CardHeader>
-                <CardTitle className="text-2xl">Play Wordle</CardTitle>
-                <CardDescription>Start guessing today's word!</CardDescription>
-              </CardHeader>
-            </Link>
-          </Card>
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-5xl space-y-8">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-primary mb-2">Ready to Play?</h2>
+            <p className="text-lg text-muted-foreground">Choose an option below to get started</p>
+          </div>
 
-          <Card className="transition-all hover:shadow-lg hover:scale-[1.02]">
-            <Link href="/leaderboard" className="block">
-              <CardHeader>
-                <CardTitle className="text-2xl">Leaderboard</CardTitle>
-                <CardDescription>See who's winning!</CardDescription>
-              </CardHeader>
-            </Link>
-          </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="transition-all hover:shadow-2xl hover:scale-[1.03] hover:border-primary/50 cursor-pointer group">
+              <Link href="/play" className="block">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <span className="text-2xl">🎮</span>
+                    </div>
+                  </div>
+                  <CardTitle className="text-3xl group-hover:text-primary transition-colors">Play Wordle</CardTitle>
+                  <CardDescription className="text-base">Start guessing today's word and earn points!</CardDescription>
+                </CardHeader>
+              </Link>
+            </Card>
+
+            <Card className="transition-all hover:shadow-2xl hover:scale-[1.03] hover:border-secondary/50 cursor-pointer group">
+              <Link href="/leaderboard" className="block">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
+                      <span className="text-2xl">🏆</span>
+                    </div>
+                  </div>
+                  <CardTitle className="text-3xl group-hover:text-primary transition-colors">Leaderboard</CardTitle>
+                  <CardDescription className="text-base">See who's dominating the competition!</CardDescription>
+                </CardHeader>
+              </Link>
+            </Card>
+          </div>
         </div>
       </main>
     </div>

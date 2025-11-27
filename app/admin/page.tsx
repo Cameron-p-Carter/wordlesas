@@ -4,7 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { supabase, Game, User } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -147,22 +152,27 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-cyan-50">
+      <nav className="border-b bg-white/90 backdrop-blur-sm shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between">
+          <div className="flex h-20 justify-between">
+            <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+              <Image
+                src="/images/logos/S@S_Logo_Mark_RGB.svg"
+                alt="Software@Scale Logo"
+                width={50}
+                height={50}
+                priority
+              />
+              <div>
+                <h1 className="text-xl font-bold text-primary">Software@Scale Wordle</h1>
+                <p className="text-xs text-secondary font-semibold">Admin Panel</p>
+              </div>
+            </Link>
             <div className="flex items-center">
-              <Link href="/" className="text-xl font-bold hover:text-blue-600">
-                Wordle Clone - Admin
-              </Link>
-            </div>
-            <div className="flex items-center">
-              <Link
-                href="/"
-                className="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300"
-              >
-                Back to Home
-              </Link>
+              <Button asChild variant="outline">
+                <Link href="/">Back to Home</Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -170,144 +180,150 @@ export default function AdminPage() {
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         {message && (
-          <div className="mb-4 rounded-md bg-blue-50 p-4 text-blue-700">
-            {message}
-          </div>
+          <Card className="mb-6 border-primary/20 bg-primary/5">
+            <CardContent className="py-4">
+              <p className="text-primary font-medium">{message}</p>
+            </CardContent>
+          </Card>
         )}
 
-        <div className="mb-6 flex space-x-4 border-b">
-          <button
+        <div className="mb-6 flex space-x-2">
+          <Button
             onClick={() => setActiveTab('games')}
-            className={`px-4 py-2 font-semibold ${
-              activeTab === 'games'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            variant={activeTab === 'games' ? 'default' : 'outline'}
+            className="px-6"
           >
             Games
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 font-semibold ${
-              activeTab === 'users'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            variant={activeTab === 'users' ? 'default' : 'outline'}
+            className="px-6"
           >
             Users
-          </button>
+          </Button>
         </div>
 
         {activeTab === 'games' && (
-          <div>
-            <div className="mb-8 rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-4 text-xl font-bold">Create New Game</h2>
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  value={newWord}
-                  onChange={(e) => setNewWord(e.target.value.toUpperCase())}
-                  maxLength={5}
-                  placeholder="Enter 5-letter word"
-                  className="flex-1 rounded-md border border-gray-300 px-4 py-2 uppercase"
-                />
-                <button
-                  onClick={createGame}
-                  className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-700"
-                >
-                  Create Game
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-4 text-xl font-bold">All Games</h2>
-              <div className="space-y-4">
-                {games.map((game) => (
-                  <div
-                    key={game.id}
-                    className="flex items-center justify-between border-b pb-4"
-                  >
-                    <div>
-                      <div className="font-mono text-2xl font-bold">{game.word}</div>
-                      <div className="text-sm text-gray-600">
-                        Created: {new Date(game.created_at).toLocaleDateString()}
-                      </div>
-                      {game.is_active && (
-                        <span className="inline-block rounded bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
-                          ACTIVE
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => toggleGameActive(game.id, game.is_active)}
-                        className={`rounded-md px-4 py-2 text-sm font-semibold ${
-                          game.is_active
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'bg-green-600 text-white hover:bg-green-700'
-                        }`}
-                      >
-                        {game.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => deleteGame(game.id)}
-                        className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
+          <div className="space-y-6">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl">Create New Game</CardTitle>
+                <CardDescription>Enter a 5-letter word to create a new game</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      value={newWord}
+                      onChange={(e) => setNewWord(e.target.value.toUpperCase())}
+                      maxLength={5}
+                      placeholder="Enter 5-letter word"
+                      className="uppercase text-xl font-mono h-12"
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
+                  <Button onClick={createGame} size="lg" className="px-8">
+                    Create Game
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl">All Games</CardTitle>
+                <CardDescription>Manage all created games</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {games.map((game) => (
+                    <div
+                      key={game.id}
+                      className="flex items-center justify-between border-b pb-4 last:border-0"
+                    >
+                      <div>
+                        <div className="font-mono text-2xl font-bold text-primary">{game.word}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Created: {new Date(game.created_at).toLocaleDateString()}
+                        </div>
+                        {game.is_active && (
+                          <span className="inline-block mt-1 rounded bg-secondary/20 px-2 py-1 text-xs font-semibold text-secondary">
+                            ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => toggleGameActive(game.id, game.is_active)}
+                          variant={game.is_active ? 'destructive' : 'secondary'}
+                          size="sm"
+                        >
+                          {game.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button
+                          onClick={() => deleteGame(game.id)}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
         {activeTab === 'users' && (
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="mb-4 text-xl font-bold">All Users</h2>
-            <div className="space-y-4">
-              {users.map((u) => (
-                <div
-                  key={u.id}
-                  className="flex items-center justify-between border-b pb-4"
-                >
-                  <div>
-                    <div className="text-lg font-semibold">{u.name}</div>
-                    <div className="text-sm text-gray-600">
-                      Joined: {new Date(u.created_at).toLocaleDateString()}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl">All Users</CardTitle>
+              <CardDescription>Manage user accounts and permissions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {users.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between border-b pb-4 last:border-0"
+                  >
+                    <div>
+                      <div className="text-lg font-semibold">{u.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Joined: {new Date(u.created_at).toLocaleDateString()}
+                      </div>
+                      {u.is_admin && (
+                        <span className="inline-block mt-1 rounded bg-primary/20 px-2 py-1 text-xs font-semibold text-primary">
+                          ADMIN
+                        </span>
+                      )}
                     </div>
-                    {u.is_admin && (
-                      <span className="inline-block rounded bg-purple-100 px-2 py-1 text-xs font-semibold text-purple-800">
-                        ADMIN
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleUserAdmin(u.id, u.is_admin)}
-                      className={`rounded-md px-4 py-2 text-sm font-semibold ${
-                        u.is_admin
-                          ? 'bg-gray-600 text-white hover:bg-gray-700'
-                          : 'bg-purple-600 text-white hover:bg-purple-700'
-                      }`}
-                    >
-                      {u.is_admin ? 'Remove Admin' : 'Make Admin'}
-                    </button>
-                    {u.id !== user.id && (
-                      <button
-                        onClick={() => deleteUser(u.id)}
-                        className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => toggleUserAdmin(u.id, u.is_admin)}
+                        variant={u.is_admin ? 'outline' : 'secondary'}
+                        size="sm"
                       >
-                        Delete
-                      </button>
-                    )}
+                        {u.is_admin ? 'Remove Admin' : 'Make Admin'}
+                      </Button>
+                      {u.id !== user.id && (
+                        <Button
+                          onClick={() => deleteUser(u.id)}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          Delete
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </main>
     </div>

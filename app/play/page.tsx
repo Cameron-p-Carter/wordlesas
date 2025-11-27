@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import WordleGame from '@/components/WordleGame';
 import { Button } from '@/components/ui/button';
 
@@ -30,20 +31,23 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <nav className="border-b bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-cyan-50">
+      <nav className="border-b bg-white/90 backdrop-blur-sm shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between">
-            <div className="flex items-center">
-              <Button asChild variant="ghost">
-                <Link href="/" className="text-xl font-bold">
-                  Wordle Clone
-                </Link>
-              </Button>
-            </div>
+          <div className="flex h-20 justify-between">
+            <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+              <Image
+                src="/images/logos/S@S_Logo_Mark_RGB.svg"
+                alt="Software@Scale Logo"
+                width={50}
+                height={50}
+                priority
+              />
+              <h1 className="text-xl font-bold text-primary">Software@Scale Wordle</h1>
+            </Link>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">Welcome, {user.name}!</span>
-              <Button asChild variant="outline" size="sm">
+              <span className="text-sm text-muted-foreground">Welcome, <span className="font-semibold text-foreground">{user.name}</span></span>
+              <Button asChild variant="secondary" size="sm">
                 <Link href="/leaderboard">Leaderboard</Link>
               </Button>
             </div>
