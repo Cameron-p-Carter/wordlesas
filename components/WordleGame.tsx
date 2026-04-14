@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, Game } from '@/lib/supabase';
 
 type LetterState = 'correct' | 'present' | 'absent' | 'empty';
 
@@ -11,11 +10,20 @@ type CellData = {
   state: LetterState;
 };
 
+type GameInfo = {
+  id: string;
+  is_active: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+};
+
 export default function WordleGame() {
   const { user } = useAuth();
-  const [game, setGame] = useState<Game | null>(null);
+  const [game, setGame] = useState<GameInfo | null>(null);
   const [currentGuess, setCurrentGuess] = useState('');
   const [guesses, setGuesses] = useState<CellData[][]>([]);
+  const [submittedGuessStrings, setSubmittedGuessStrings] = useState<string[]>([]);
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
   const [message, setMessage] = useState('');
@@ -28,35 +36,24 @@ export default function WordleGame() {
 
   const loadGame = async () => {
     try {
-      // Get active game
-      const { data: activeGame, error: gameError } = await supabase
-        .from('games')
-        .select('*')
-        .eq('is_active', true)
-        .single();
+      const params = user?.id ? `?userId=${user.id}` : '';
+      const res = await fetch(`/api/game${params}`);
 
-      if (gameError || !activeGame) {
+      if (!res.ok) {
         setMessage('No active game. Please wait for admin to start a new game.');
         setLoading(false);
         return;
       }
 
-      setGame(activeGame);
+      const data = await res.json();
+      setGame(data.game);
 
-      // Check if user has already played this game
-      const { data: existingScore } = await supabase
-        .from('scores')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('game_id', activeGame.id)
-        .single();
-
-      if (existingScore) {
+      if (data.alreadyPlayed) {
         setHasPlayed(true);
-        setGuesses(existingScore.guesses.map((guess: string) => evaluateGuess(guess, activeGame.word)));
+        setGuesses(data.guesses);
         setGameOver(true);
-        setWon(existingScore.won);
-        setMessage(existingScore.won ? 'You already completed this word!' : 'You already attempted this word.');
+        setWon(data.won);
+        setMessage(data.won ? 'You already completed this word!' : 'You already attempted this word.');
       }
 
       setLoading(false);
@@ -64,40 +61,6 @@ export default function WordleGame() {
       console.error('Error loading game:', error);
       setLoading(false);
     }
-  };
-
-  const evaluateGuess = (guess: string, targetWord: string): CellData[] => {
-    const result: CellData[] = [];
-    const target = targetWord.toUpperCase();
-    const guessUpper = guess.toUpperCase();
-    const targetLetters = target.split('');
-    const guessLetters = guessUpper.split('');
-
-    // First pass: mark correct letters
-    const used = new Array(5).fill(false);
-    for (let i = 0; i < 5; i++) {
-      if (guessLetters[i] === targetLetters[i]) {
-        result[i] = { letter: guessLetters[i], state: 'correct' };
-        used[i] = true;
-      } else {
-        result[i] = { letter: guessLetters[i], state: 'absent' };
-      }
-    }
-
-    // Second pass: mark present letters
-    for (let i = 0; i < 5; i++) {
-      if (result[i].state !== 'correct') {
-        const letterIndex = targetLetters.findIndex(
-          (letter, index) => letter === guessLetters[i] && !used[index]
-        );
-        if (letterIndex !== -1) {
-          result[i].state = 'present';
-          used[letterIndex] = true;
-        }
-      }
-    }
-
-    return result;
   };
 
   const handleKeyPress = (key: string) => {
@@ -121,41 +84,46 @@ export default function WordleGame() {
   const submitGuess = async () => {
     if (!game || !user) return;
 
-    const evaluation = evaluateGuess(currentGuess, game.word);
-    const newGuesses = [...guesses, evaluation];
-    setGuesses(newGuesses);
+    try {
+      const res = await fetch('/api/guess', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guess: currentGuess,
+          userId: user.id,
+          gameId: game.id,
+          previousGuesses: submittedGuessStrings,
+        }),
+      });
 
-    const isCorrect = currentGuess.toUpperCase() === game.word.toUpperCase();
-    const isLastGuess = newGuesses.length === 5;
-
-    if (isCorrect || isLastGuess) {
-      setGameOver(true);
-      setWon(isCorrect);
-
-      // Calculate points: 1 guess = 5 points, 2 = 4, 3 = 3, 4 = 2, 5 = 1, fail = 0
-      let points = 0;
-      if (isCorrect) {
-        points = 6 - newGuesses.length;
+      if (!res.ok) {
+        const err = await res.json();
+        setMessage(err.error || 'Error submitting guess');
+        return;
       }
 
-      // Save score
-      try {
-        await supabase.from('scores').insert({
-          user_id: user.id,
-          game_id: game.id,
-          guesses_count: newGuesses.length,
-          points: points,
-          guesses: newGuesses.map(g => g.map(c => c.letter).join('')),
-          won: isCorrect,
-        });
+      const result = await res.json();
+      const newGuesses = [...guesses, result.evaluation];
+      const newGuessStrings = [...submittedGuessStrings, currentGuess];
 
-        setMessage(isCorrect ? `Congratulations! You got it in ${newGuesses.length} ${newGuesses.length === 1 ? 'guess' : 'guesses'}!` : `Game Over! The word was ${game.word.toUpperCase()}`);
-      } catch (error) {
-        console.error('Error saving score:', error);
+      setGuesses(newGuesses);
+      setSubmittedGuessStrings(newGuessStrings);
+
+      if (result.gameOver) {
+        setGameOver(true);
+        setWon(result.won);
+        if (result.won) {
+          setMessage(`Congratulations! You got it in ${newGuesses.length} ${newGuesses.length === 1 ? 'guess' : 'guesses'}!`);
+        } else {
+          setMessage(`Game Over! The word was ${result.word}`);
+        }
       }
+
+      setCurrentGuess('');
+    } catch (error) {
+      console.error('Error submitting guess:', error);
+      setMessage('Error submitting guess. Please try again.');
     }
-
-    setCurrentGuess('');
   };
 
   useEffect(() => {
@@ -176,13 +144,13 @@ export default function WordleGame() {
   const getCellClass = (state: LetterState) => {
     switch (state) {
       case 'correct':
-        return 'bg-green-500 text-white border-green-500';
+        return 'bg-green-500 text-white border-green-500 shadow-lg';
       case 'present':
-        return 'bg-yellow-500 text-white border-yellow-500';
+        return 'bg-yellow-500 text-white border-yellow-500 shadow-lg';
       case 'absent':
         return 'bg-gray-400 text-white border-gray-400';
       default:
-        return 'bg-white border-gray-300';
+        return 'bg-white border-gray-300 hover:border-[#5ae0f6]/50 transition-all';
     }
   };
 
@@ -238,22 +206,37 @@ export default function WordleGame() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <h2 className="mb-6 text-center text-2xl font-bold">Wordle</h2>
+    <div className="mx-auto max-w-2xl">
+      {/* Premium header with glow effect */}
+      <div className="mb-8 text-center relative">
+        <div className="absolute inset-0 blur-3xl opacity-20 bg-gradient-to-r from-[#0c2080] via-[#5ae0f6] to-[#0c2080]"></div>
+        <h2 className="relative text-4xl font-bold bg-gradient-to-r from-[#0c2080] to-[#5ae0f6] bg-clip-text text-transparent">
+          Elite Word Challenge
+        </h2>
+        <p className="relative mt-2 text-sm text-muted-foreground">Guess the word in 5 attempts</p>
+      </div>
 
       {message && (
-        <div className={`mb-4 rounded-md p-3 text-center ${gameOver ? 'bg-blue-50 text-blue-700' : 'bg-yellow-50 text-yellow-700'}`}>
+        <div className={`mb-6 rounded-xl p-4 text-center font-medium shadow-lg ${
+          gameOver
+            ? won
+              ? 'bg-gradient-to-r from-[#5ae0f6]/10 to-[#0c2080]/10 text-[#0c2080] border-2 border-[#5ae0f6]'
+              : 'bg-red-50 text-red-700 border-2 border-red-200'
+            : 'bg-yellow-50 text-yellow-700 border-2 border-yellow-200'
+        }`}>
           {message}
         </div>
       )}
 
-      <div className="mb-6 space-y-2">
+      {/* Game grid with premium styling */}
+      <div className="mb-8 space-y-3 p-6 rounded-2xl bg-white/50 backdrop-blur-sm shadow-xl border border-white/20">
         {rows.map((row, i) => (
-          <div key={i} className="flex justify-center gap-2">
+          <div key={i} className="flex justify-center gap-3">
             {row.map((cell, j) => (
               <div
                 key={j}
-                className={`flex h-14 w-14 items-center justify-center border-2 text-2xl font-bold transition-colors ${getCellClass(cell.state)}`}
+                className={`flex h-16 w-16 items-center justify-center border-2 text-3xl font-bold rounded-lg transition-all duration-300 ${getCellClass(cell.state)}`}
+                style={{ animationDelay: `${j * 0.1}s` }}
               >
                 {cell.letter}
               </div>
@@ -262,23 +245,24 @@ export default function WordleGame() {
         ))}
       </div>
 
+      {/* Premium keyboard */}
       <div className="space-y-2">
         {[
           ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
           ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
           ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE'],
         ].map((row, i) => (
-          <div key={i} className="flex justify-center gap-1">
+          <div key={i} className="flex justify-center gap-1.5">
             {row.map((key) => (
               <button
                 key={key}
                 onClick={() => handleKeyPress(key)}
                 disabled={gameOver}
-                className={`rounded px-3 py-4 font-semibold ${
+                className={`rounded-lg px-3 py-4 font-semibold transition-all duration-200 ${
                   key === 'ENTER' || key === 'BACKSPACE'
-                    ? 'bg-gray-500 text-white px-4'
-                    : 'bg-gray-200'
-                } ${gameOver ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300'}`}
+                    ? 'bg-[#0c2080] text-white px-5 hover:bg-[#0c2080]/90 shadow-lg'
+                    : 'bg-gray-200 hover:bg-[#5ae0f6] hover:text-[#0c2080] hover:shadow-md'
+                } ${gameOver ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {key === 'BACKSPACE' ? '⌫' : key}
               </button>
