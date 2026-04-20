@@ -43,7 +43,7 @@ export default function PlayPage() {
                 height={50}
                 priority
               />
-              <h1 className="text-xl font-bold text-primary">Software@Scale Wordle</h1>
+              <h1 className="text-xl font-bold text-primary">Software@Scale Wordo</h1>
             </Link>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground">Welcome, <span className="font-semibold text-foreground">{user.name}</span></span>

@@ -165,7 +165,7 @@ export default function AdminPage() {
                 priority
               />
               <div>
-                <h1 className="text-xl font-bold text-primary">Software@Scale Wordle</h1>
+                <h1 className="text-xl font-bold text-primary">Software@Scale Wordo</h1>
                 <p className="text-xs text-secondary font-semibold">Admin Panel</p>
               </div>
             </Link>

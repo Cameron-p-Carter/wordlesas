@@ -58,7 +58,7 @@ export default function Home() {
               />
             </div>
             <div>
-              <CardTitle className="text-3xl font-bold text-primary">Software@Scale Wordle</CardTitle>
+              <CardTitle className="text-3xl font-bold text-primary">Software@Scale Wordo</CardTitle>
               <CardDescription className="mt-2">
                 {isRegistering ? 'Create a new account to start playing' : 'Welcome back! Sign in to continue'}
               </CardDescription>
@@ -118,7 +118,7 @@ export default function Home() {
                 height={50}
                 priority
               />
-              <h1 className="text-xl font-bold text-primary">Software@Scale Wordle</h1>
+              <h1 className="text-xl font-bold text-primary">Software@Scale Wordo</h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground">Welcome, <span className="font-semibold text-foreground">{user.name}</span></span>
@@ -151,7 +151,7 @@ export default function Home() {
                       <span className="text-2xl">🎮</span>
                     </div>
                   </div>
-                  <CardTitle className="text-3xl group-hover:text-primary transition-colors">Play Wordle</CardTitle>
+                  <CardTitle className="text-3xl group-hover:text-primary transition-colors">Play Wordo</CardTitle>
                   <CardDescription className="text-base">Start guessing today's word and earn points!</CardDescription>
                 </CardHeader>
               </Link>
