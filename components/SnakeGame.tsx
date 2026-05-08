@@ -171,9 +171,9 @@ export default function SnakeGame({ onGameOver }: { onGameOver: (food: number) =
         setStarted(true);
       }
 
-      // Queue up to 3 moves; validate against the last queued direction
+      // Queue up to 3 moves; drop duplicates and reversals
       const last = dirQueue.current[dirQueue.current.length - 1] ?? dirRef.current;
-      if (d !== OPPOSITE[last] && dirQueue.current.length < 3) {
+      if (d !== last && d !== OPPOSITE[last] && dirQueue.current.length < 3) {
         dirQueue.current.push(d);
       }
     };
