@@ -1,184 +1,207 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 
-const GRID_SIZE = 20;
-const CELL_SIZE = 24;
-const INITIAL_SPEED = 150;
-const SPEED_INCREMENT = 3;
+const GRID = 20;
+const CELL = 26;
+const INITIAL_MS = 160;
+const MIN_MS = 65;
+const SPEED_STEP = 4;
 
 type Point = { x: number; y: number };
-type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+type Dir = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
 
-function randomFood(snake: Point[]): Point {
-  let pos: Point;
+const OPPOSITE: Record<Dir, Dir> = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
+
+function randFood(snake: Point[]): Point {
+  let p: Point;
   do {
-    pos = {
-      x: Math.floor(Math.random() * GRID_SIZE),
-      y: Math.floor(Math.random() * GRID_SIZE),
-    };
-  } while (snake.some((s) => s.x === pos.x && s.y === pos.y));
-  return pos;
+    p = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+  } while (snake.some((s) => s.x === p.x && s.y === p.y));
+  return p;
 }
 
-type Props = {
-  onGameOver: (foodEaten: number) => void;
-};
-
-export default function SnakeGame({ onGameOver }: Props) {
-  const initialSnake: Point[] = [{ x: 10, y: 10 }];
-  const [snake, setSnake] = useState<Point[]>(initialSnake);
-  const [food, setFood] = useState<Point>(() => randomFood(initialSnake));
-  const [direction, setDirection] = useState<Direction>('RIGHT');
-  const [foodEaten, setFoodEaten] = useState(0);
+export default function SnakeGame({ onGameOver }: { onGameOver: (food: number) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [score, setScore] = useState(0);
   const [started, setStarted] = useState(false);
   const [dead, setDead] = useState(false);
 
-  const directionRef = useRef<Direction>('RIGHT');
-  const snakeRef = useRef<Point[]>(initialSnake);
-  const foodRef = useRef<Point>(food);
-  const foodEatenRef = useRef(0);
-  const deadRef = useRef(false);
-  const gameLoopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const snakeRef = useRef<Point[]>([{ x: 10, y: 10 }]);
+  const prevSnakeRef = useRef<Point[]>([{ x: 10, y: 10 }]);
+  const foodRef = useRef<Point>(randFood([{ x: 10, y: 10 }]));
+  const dirRef = useRef<Dir>('RIGHT');
+  const dirQueue = useRef<Dir[]>([]);
+  const scoreRef = useRef(0);
+  const isStarted = useRef(false);
+  const isDead = useRef(false);
+  const lastTick = useRef(0);
+  const rafId = useRef(0);
 
-  foodRef.current = food;
+  const getMs = () => Math.max(MIN_MS, INITIAL_MS - scoreRef.current * SPEED_STEP);
 
-  const tick = useCallback(() => {
-    if (deadRef.current) return;
+  const render = useCallback((t: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
 
-    const head = snakeRef.current[0];
-    const dir = directionRef.current;
+    const progress = isStarted.current ? Math.min((t - lastTick.current) / getMs(), 1) : 0;
 
-    const next: Point = {
-      x: head.x + (dir === 'RIGHT' ? 1 : dir === 'LEFT' ? -1 : 0),
-      y: head.y + (dir === 'DOWN' ? 1 : dir === 'UP' ? -1 : 0),
-    };
+    // Background
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Wall collision
-    if (next.x < 0 || next.x >= GRID_SIZE || next.y < 0 || next.y >= GRID_SIZE) {
-      deadRef.current = true;
-      setDead(true);
-      onGameOver(foodEatenRef.current);
-      return;
+    // Subtle grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < GRID; i++) {
+      ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, GRID * CELL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(GRID * CELL, i * CELL); ctx.stroke();
     }
 
-    // Self collision
-    if (snakeRef.current.some((s) => s.x === next.x && s.y === next.y)) {
-      deadRef.current = true;
-      setDead(true);
-      onGameOver(foodEatenRef.current);
-      return;
-    }
+    // Food — pulsing glow
+    const fp = foodRef.current;
+    const pulse = 0.8 + 0.2 * Math.sin(t / 250);
+    ctx.save();
+    ctx.shadowColor = '#f87171';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(fp.x * CELL + CELL / 2, fp.y * CELL + CELL / 2, (CELL / 2 - 3) * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 
-    const ateFood = next.x === foodRef.current.x && next.y === foodRef.current.y;
-    const newSnake = [next, ...snakeRef.current];
-    if (!ateFood) newSnake.pop();
+    // Snake — interpolated between previous and current grid positions
+    const cur = snakeRef.current;
+    const prev = prevSnakeRef.current;
+    cur.forEach((seg, i) => {
+      const ps = prev[i] ?? seg;
+      // Only interpolate if delta is 1 cell (avoid glitch on first frame)
+      const dx = seg.x - ps.x;
+      const dy = seg.y - ps.y;
+      const ix = Math.abs(dx) <= 1 ? ps.x + dx * progress : seg.x;
+      const iy = Math.abs(dy) <= 1 ? ps.y + dy * progress : seg.y;
 
-    snakeRef.current = newSnake;
-    setSnake([...newSnake]);
+      const px = ix * CELL + 1;
+      const py = iy * CELL + 1;
+      const size = CELL - 2;
 
-    if (ateFood) {
-      foodEatenRef.current += 1;
-      setFoodEaten(foodEatenRef.current);
-      const newFood = randomFood(newSnake);
-      foodRef.current = newFood;
-      setFood(newFood);
-    }
+      ctx.save();
+      if (i === 0) {
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#4ade80';
+      } else {
+        const lightness = Math.max(28, 38 - Math.min(i, 15));
+        ctx.fillStyle = `hsl(142, 65%, ${lightness}%)`;
+      }
+      ctx.beginPath();
+      ctx.roundRect(px, py, size, size, i === 0 ? 7 : 4);
+      ctx.fill();
+      ctx.restore();
+    });
+  }, []);
 
-    const speed = Math.max(60, INITIAL_SPEED - foodEatenRef.current * SPEED_INCREMENT);
-    gameLoopRef.current = setTimeout(tick, speed);
-  }, [onGameOver]);
+  const loop = useCallback((t: number) => {
+    if (isDead.current) return;
 
-  useEffect(() => {
-    if (!started) return;
-
-    gameLoopRef.current = setTimeout(tick, INITIAL_SPEED);
-    return () => {
-      if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
-    };
-  }, [started, tick]);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      const map: Record<string, Direction> = {
-        ArrowUp: 'UP',
-        ArrowDown: 'DOWN',
-        ArrowLeft: 'LEFT',
-        ArrowRight: 'RIGHT',
-        w: 'UP',
-        s: 'DOWN',
-        a: 'LEFT',
-        d: 'RIGHT',
-      };
-      const newDir = map[e.key];
-      if (!newDir) return;
-
-      // Prevent reversing
-      const opposite: Record<Direction, Direction> = {
-        UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT',
-      };
-      if (newDir !== opposite[directionRef.current]) {
-        directionRef.current = newDir;
-        setDirection(newDir);
+    if (isStarted.current && t - lastTick.current >= getMs()) {
+      // Consume the next valid direction from the queue
+      while (dirQueue.current.length) {
+        const next = dirQueue.current.shift()!;
+        if (next !== OPPOSITE[dirRef.current]) { dirRef.current = next; break; }
       }
 
-      if (!started && !dead) setStarted(true);
+      const head = snakeRef.current[0];
+      const d = dirRef.current;
+      const next: Point = {
+        x: head.x + (d === 'RIGHT' ? 1 : d === 'LEFT' ? -1 : 0),
+        y: head.y + (d === 'DOWN' ? 1 : d === 'UP' ? -1 : 0),
+      };
 
-      e.preventDefault();
+      // Wall + self collision
+      const hitWall = next.x < 0 || next.x >= GRID || next.y < 0 || next.y >= GRID;
+      const hitSelf = snakeRef.current.slice(0, -1).some((s) => s.x === next.x && s.y === next.y);
+      if (hitWall || hitSelf) {
+        isDead.current = true;
+        setDead(true);
+        onGameOver(scoreRef.current);
+        render(t);
+        return;
+      }
+
+      const ate = next.x === foodRef.current.x && next.y === foodRef.current.y;
+      prevSnakeRef.current = [...snakeRef.current];
+      const newSnake = [next, ...snakeRef.current];
+      if (!ate) newSnake.pop();
+      snakeRef.current = newSnake;
+
+      if (ate) {
+        scoreRef.current += 1;
+        setScore(scoreRef.current);
+        foodRef.current = randFood(newSnake);
+      }
+
+      lastTick.current = t;
+    }
+
+    render(t);
+    rafId.current = requestAnimationFrame(loop);
+  }, [render, onGameOver]);
+
+  useEffect(() => {
+    rafId.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId.current);
+  }, [loop]);
+
+  useEffect(() => {
+    const KEY: Record<string, Dir> = {
+      ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT',
+      w: 'UP', s: 'DOWN', a: 'LEFT', d: 'RIGHT',
+      W: 'UP', S: 'DOWN', A: 'LEFT', D: 'RIGHT',
     };
+    const onKey = (e: KeyboardEvent) => {
+      const d = KEY[e.key];
+      if (!d) return;
+      e.preventDefault();
 
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [started, dead]);
+      if (!isStarted.current && !isDead.current) {
+        isStarted.current = true;
+        lastTick.current = performance.now();
+        setStarted(true);
+      }
 
-  const boardWidth = GRID_SIZE * CELL_SIZE;
-  const boardHeight = GRID_SIZE * CELL_SIZE;
+      // Queue up to 3 moves; validate against the last queued direction
+      const last = dirQueue.current[dirQueue.current.length - 1] ?? dirRef.current;
+      if (d !== OPPOSITE[last] && dirQueue.current.length < 3) {
+        dirQueue.current.push(d);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const size = GRID * CELL;
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-8 text-lg font-semibold">
-        <span>Food eaten: <span className="text-green-600">{foodEaten}</span></span>
+      <div className="text-lg font-semibold">
+        Food eaten: <span className="text-green-400">{score}</span>
       </div>
-
-      <div
-        className="relative border-2 border-gray-800 bg-gray-900 rounded"
-        style={{ width: boardWidth, height: boardHeight }}
-      >
-        {/* Food */}
-        <div
-          className="absolute rounded-full bg-red-500"
-          style={{
-            left: food.x * CELL_SIZE + 2,
-            top: food.y * CELL_SIZE + 2,
-            width: CELL_SIZE - 4,
-            height: CELL_SIZE - 4,
-          }}
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={size}
+          height={size}
+          className="rounded-lg border-2 border-gray-700"
         />
-
-        {/* Snake */}
-        {snake.map((seg, i) => (
-          <div
-            key={i}
-            className={`absolute rounded-sm ${i === 0 ? 'bg-green-400' : 'bg-green-600'}`}
-            style={{
-              left: seg.x * CELL_SIZE + 1,
-              top: seg.y * CELL_SIZE + 1,
-              width: CELL_SIZE - 2,
-              height: CELL_SIZE - 2,
-            }}
-          />
-        ))}
-
-        {/* Overlay: press any key to start */}
         {!started && !dead && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded">
-            <p className="text-white text-xl font-bold">Press any arrow key to start</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/65 rounded-lg">
+            <p className="text-white text-xl font-bold tracking-wide">Press any arrow key to start</p>
           </div>
         )}
       </div>
-
-      <p className="text-sm text-muted-foreground">Arrow keys or WASD to move</p>
+      <p className="text-sm text-muted-foreground">Arrow keys or WASD · dodge the walls</p>
     </div>
   );
 }
