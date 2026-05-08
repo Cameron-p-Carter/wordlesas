@@ -31,7 +31,7 @@ export default function SnakeGame({ onGameOver }: { onGameOver: (food: number) =
   const prevSnakeRef = useRef<Point[]>([{ x: 10, y: 10 }]);
   const foodRef = useRef<Point>(randFood([{ x: 10, y: 10 }]));
   const dirRef = useRef<Dir>('RIGHT');
-  const dirQueue = useRef<Dir[]>([]);
+  const nextDir = useRef<Dir | null>(null);
   const scoreRef = useRef(0);
   const isStarted = useRef(false);
   const isDead = useRef(false);
@@ -106,10 +106,10 @@ export default function SnakeGame({ onGameOver }: { onGameOver: (food: number) =
     if (isDead.current) return;
 
     if (isStarted.current && t - lastTick.current >= getMs()) {
-      // Consume the next valid direction from the queue
-      while (dirQueue.current.length) {
-        const next = dirQueue.current.shift()!;
-        if (next !== OPPOSITE[dirRef.current]) { dirRef.current = next; break; }
+      // Apply the single buffered direction if set
+      if (nextDir.current) {
+        dirRef.current = nextDir.current;
+        nextDir.current = null;
       }
 
       const head = snakeRef.current[0];
@@ -171,10 +171,10 @@ export default function SnakeGame({ onGameOver }: { onGameOver: (food: number) =
         setStarted(true);
       }
 
-      // Queue up to 3 moves; drop duplicates and reversals
-      const last = dirQueue.current[dirQueue.current.length - 1] ?? dirRef.current;
-      if (d !== last && d !== OPPOSITE[last] && dirQueue.current.length < 3) {
-        dirQueue.current.push(d);
+      // Store only the most recent valid direction — no buffering beyond one move
+      const last = nextDir.current ?? dirRef.current;
+      if (d !== last && d !== OPPOSITE[last]) {
+        nextDir.current = d;
       }
     };
     window.addEventListener('keydown', onKey);
