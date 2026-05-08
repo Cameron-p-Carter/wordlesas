@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabase, Game, User } from '@/lib/supabase';
+import { supabase, Game, User, SnakeGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,11 @@ export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
+  const [snakeGames, setSnakeGames] = useState<SnakeGame[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [newWord, setNewWord] = useState('');
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'games' | 'users'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'snake' | 'users'>('games');
 
   useEffect(() => {
     if (!loading && (!user || !user.is_admin)) {
@@ -36,6 +37,14 @@ export default function AdminPage() {
       .order('created_at', { ascending: false });
 
     if (gamesData) setGames(gamesData);
+
+    // Load snake games
+    const { data: snakeData } = await supabase
+      .from('snake_games')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (snakeData) setSnakeGames(snakeData);
 
     // Load users
     const { data: usersData } = await supabase
@@ -100,6 +109,46 @@ export default function AdminPage() {
       if (error) throw error;
 
       setMessage('Game deleted successfully');
+      loadData();
+    } catch (error: any) {
+      setMessage('Error: ' + error.message);
+    }
+  };
+
+  const createSnakeSession = async () => {
+    try {
+      const { error } = await supabase.from('snake_games').insert({ is_active: false });
+      if (error) throw error;
+      setMessage('Snake session created!');
+      loadData();
+    } catch (error: any) {
+      setMessage('Error: ' + error.message);
+    }
+  };
+
+  const toggleSnakeActive = async (sessionId: string, currentState: boolean) => {
+    try {
+      if (!currentState) {
+        await supabase.from('snake_games').update({ is_active: false }).neq('id', sessionId);
+      }
+      const { error } = await supabase
+        .from('snake_games')
+        .update({ is_active: !currentState })
+        .eq('id', sessionId);
+      if (error) throw error;
+      setMessage(currentState ? 'Snake session deactivated' : 'Snake session activated!');
+      loadData();
+    } catch (error: any) {
+      setMessage('Error: ' + error.message);
+    }
+  };
+
+  const deleteSnakeSession = async (sessionId: string) => {
+    if (!confirm('Delete this snake session? This will also delete all scores.')) return;
+    try {
+      const { error } = await supabase.from('snake_games').delete().eq('id', sessionId);
+      if (error) throw error;
+      setMessage('Snake session deleted');
       loadData();
     } catch (error: any) {
       setMessage('Error: ' + error.message);
@@ -193,7 +242,14 @@ export default function AdminPage() {
             variant={activeTab === 'games' ? 'default' : 'outline'}
             className="px-6"
           >
-            Games
+            Wordo Games
+          </Button>
+          <Button
+            onClick={() => setActiveTab('snake')}
+            variant={activeTab === 'snake' ? 'default' : 'outline'}
+            className="px-6"
+          >
+            Snake Sessions
           </Button>
           <Button
             onClick={() => setActiveTab('users')}
@@ -271,6 +327,70 @@ export default function AdminPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'snake' && (
+          <div className="space-y-6">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl">Create Snake Session</CardTitle>
+                <CardDescription>Open a new snake session for users to play</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={createSnakeSession} size="lg" className="px-8">
+                  Create Session
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl">All Snake Sessions</CardTitle>
+                <CardDescription>Manage snake game sessions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {snakeGames.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex items-center justify-between border-b pb-4 last:border-0"
+                    >
+                      <div>
+                        <div className="font-mono text-sm text-muted-foreground">{session.id}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Created: {new Date(session.created_at).toLocaleDateString()}
+                        </div>
+                        {session.is_active && (
+                          <span className="inline-block mt-1 rounded bg-green-500/20 px-2 py-1 text-xs font-semibold text-green-700">
+                            ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => toggleSnakeActive(session.id, session.is_active)}
+                          variant={session.is_active ? 'destructive' : 'secondary'}
+                          size="sm"
+                        >
+                          {session.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button
+                          onClick={() => deleteSnakeSession(session.id)}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {snakeGames.length === 0 && (
+                    <p className="text-muted-foreground text-sm">No sessions yet.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

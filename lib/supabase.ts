@@ -36,3 +36,17 @@ export type Score = {
 export type ScoreWithUser = Score & {
   users: User;
 };
+
+export type SnakeGame = {
+  id: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type SnakeScore = {
+  id: string;
+  user_id: string;
+  snake_game_id: string;
+  food_eaten: number;
+  completed_at: string;
+};

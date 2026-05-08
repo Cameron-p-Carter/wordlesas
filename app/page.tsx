@@ -142,17 +142,31 @@ export default function Home() {
             <p className="text-lg text-muted-foreground">Choose an option below to get started</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-3">
             <Card className="transition-all hover:shadow-2xl hover:scale-[1.03] hover:border-primary/50 cursor-pointer group">
               <Link href="/play" className="block">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <span className="text-2xl">🎮</span>
+                      <span className="text-2xl">🔤</span>
                     </div>
                   </div>
                   <CardTitle className="text-3xl group-hover:text-primary transition-colors">Play Wordo</CardTitle>
-                  <CardDescription className="text-base">Start guessing today's word and earn points!</CardDescription>
+                  <CardDescription className="text-base">Guess the word and earn points!</CardDescription>
+                </CardHeader>
+              </Link>
+            </Card>
+
+            <Card className="transition-all hover:shadow-2xl hover:scale-[1.03] hover:border-green-500/50 cursor-pointer group">
+              <Link href="/snake" className="block">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                      <span className="text-2xl">🐍</span>
+                    </div>
+                  </div>
+                  <CardTitle className="text-3xl group-hover:text-green-600 transition-colors">Play Snake</CardTitle>
+                  <CardDescription className="text-base">Eat as much food as you can!</CardDescription>
                 </CardHeader>
               </Link>
             </Card>
