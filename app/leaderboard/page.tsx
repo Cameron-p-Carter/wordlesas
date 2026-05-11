@@ -28,9 +28,13 @@ type OverallEntry = {
   user_id: string;
   user_name: string;
   wordle_points: number;
-  snake_food: number;
+  snake_points: number;
   total: number;
 };
+
+function scaleSnake(food: number): number {
+  return Math.min(Math.max(Math.floor((food - 5) / 5), 0), 5);
+}
 
 type Tab = 'overall' | 'wordle' | 'snake';
 
@@ -86,7 +90,7 @@ export default function LeaderboardPage() {
       const overallMap = new Map<string, OverallEntry>();
       const addUser = (id: string, name: string) => {
         if (!overallMap.has(id)) {
-          overallMap.set(id, { user_id: id, user_name: name, wordle_points: 0, snake_food: 0, total: 0 });
+          overallMap.set(id, { user_id: id, user_name: name, wordle_points: 0, snake_points: 0, total: 0 });
         }
       };
       wordleMap.forEach((e) => {
@@ -95,9 +99,9 @@ export default function LeaderboardPage() {
       });
       snakeMap.forEach((e) => {
         addUser(e.user_id, e.user_name);
-        overallMap.get(e.user_id)!.snake_food = e.total_food;
+        overallMap.get(e.user_id)!.snake_points = scaleSnake(e.total_food);
       });
-      overallMap.forEach((e) => { e.total = e.wordle_points + e.snake_food; });
+      overallMap.forEach((e) => { e.total = e.wordle_points + e.snake_points; });
       const overall = Array.from(overallMap.values()).sort((a, b) => b.total - a.total);
 
       setWordleBoard(wordle);
@@ -172,8 +176,8 @@ export default function LeaderboardPage() {
                         <tr className="border-b-2">
                           <th className="px-4 py-3 text-left">Rank</th>
                           <th className="px-4 py-3 text-left">Player</th>
-                          <th className="px-4 py-3 text-center">Wordo Points</th>
-                          <th className="px-4 py-3 text-center">Snake Food</th>
+                          <th className="px-4 py-3 text-center">Wordo Pts</th>
+                          <th className="px-4 py-3 text-center">Snake Pts</th>
                           <th className="px-4 py-3 text-center">Total</th>
                         </tr>
                       </thead>
@@ -188,7 +192,7 @@ export default function LeaderboardPage() {
                             </td>
                             <td className="px-4 py-3">{e.user_name}{e.user_id === user.id && <span className="ml-2 text-sm text-primary">(You)</span>}</td>
                             <td className="px-4 py-3 text-center">{e.wordle_points}</td>
-                            <td className="px-4 py-3 text-center">{e.snake_food}</td>
+                            <td className="px-4 py-3 text-center">{e.snake_points}</td>
                             <td className="px-4 py-3 text-center text-lg font-bold">{e.total}</td>
                           </tr>
                         ))}
@@ -199,7 +203,8 @@ export default function LeaderboardPage() {
                 <Card className="mt-6 bg-muted/50">
                   <CardHeader><CardTitle className="text-base">Scoring</CardTitle></CardHeader>
                   <CardContent className="text-sm space-y-1">
-                    <p>• Overall = Wordo points + Snake food eaten (1:1)</p>
+                    <p>• Overall = Wordo points + Snake points (scaled)</p>
+                    <p>• Snake points: 0–9 food = 0 pts &nbsp;· 10–14 = 1 · 15–19 = 2 · 20–24 = 3 · 25–29 = 4 · 30+ = 5</p>
                   </CardContent>
                 </Card>
               </>
