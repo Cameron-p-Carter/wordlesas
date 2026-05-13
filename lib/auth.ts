@@ -11,8 +11,8 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
   plugins: [username()],
-  emailAndPassword: { enabled: false },
-  account: {
+  emailAndPassword: {
+    enabled: true,
     password: {
       hash: (password: string) => bcrypt.hash(password, 10),
       verify: ({ hash, password }: { hash: string; password: string }) =>
