@@ -55,8 +55,8 @@ export default function LeaderboardPage() {
   const loadLeaderboards = async () => {
     try {
       const [{ data: scoresData }, { data: snakeData }] = await Promise.all([
-        supabase.from('scores').select('user_id, points, won, users(name)'),
-        supabase.from('snake_scores').select('user_id, food_eaten, users(name)'),
+        supabase.from('scores').select('user_id, points, won, user(name)'),
+        supabase.from('snake_scores').select('user_id, food_eaten, user(name)'),
       ]);
 
       // --- Wordle ---
@@ -64,7 +64,7 @@ export default function LeaderboardPage() {
       scoresData?.forEach((s: any) => {
         const id = s.user_id;
         if (!wordleMap.has(id)) {
-          wordleMap.set(id, { user_id: id, user_name: s.users.name, total_points: 0, games_played: 0, games_won: 0 });
+          wordleMap.set(id, { user_id: id, user_name: s.user.name, total_points: 0, games_played: 0, games_won: 0 });
         }
         const e = wordleMap.get(id)!;
         e.total_points += s.points;
@@ -78,7 +78,7 @@ export default function LeaderboardPage() {
       snakeData?.forEach((s: any) => {
         const id = s.user_id;
         if (!snakeMap.has(id)) {
-          snakeMap.set(id, { user_id: id, user_name: s.users.name, total_food: 0, sessions_played: 0 });
+          snakeMap.set(id, { user_id: id, user_name: s.user.name, total_food: 0, sessions_played: 0 });
         }
         const e = snakeMap.get(id)!;
         e.total_food += s.food_eaten;

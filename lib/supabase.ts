@@ -9,8 +9,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type User = {
   id: string;
   name: string;
-  is_admin: boolean;
-  created_at: string;
+  username: string;
+  isAdmin: boolean;
+  createdAt: string;
 };
 
 export type Game = {
