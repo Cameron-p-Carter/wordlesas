@@ -178,7 +178,7 @@ export default function AdminPage() {
             <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               <Image src="/images/logos/S@S_Logo_Mark_RGB.svg" alt="Software@Scale Logo" width={50} height={50} priority />
               <div>
-                <h1 className="text-xl font-bold text-primary">Software@Scale Wordo</h1>
+                <h1 className="text-xl font-bold text-primary">Software@Scale Games</h1>
                 <p className="text-xs text-secondary font-semibold">Admin Panel</p>
               </div>
             </Link>

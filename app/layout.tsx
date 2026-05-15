@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Wordo",
-  description: "A daily word guessing game with scores and leaderboard",
+  title: "Software@Scale Games",
+  description: "Play Wordo and Snake, earn points, climb the leaderboard.",
 };
 
 export default function RootLayout({

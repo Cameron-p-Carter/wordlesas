@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   const { rows: users } = await db.query(
     `SELECT id FROM "user" WHERE username = $1`,
-    [username.trim()]
+    [username.trim().toLowerCase()]
   );
   if (users.length === 0) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });

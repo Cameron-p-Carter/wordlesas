@@ -118,7 +118,7 @@ export default function Home() {
             <div className="flex h-20 justify-between">
               <div className="flex items-center space-x-3">
                 <Image src="/images/logos/S@S_Logo_Mark_RGB.svg" alt="Software@Scale Logo" width={50} height={50} priority />
-                <h1 className="text-xl font-bold text-primary">Software@Scale Wordo</h1>
+                <h1 className="text-xl font-bold text-primary">Software@Scale Games</h1>
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-muted-foreground">Welcome, <span className="font-semibold text-foreground">{user.name}</span></span>
@@ -187,7 +187,7 @@ export default function Home() {
             <Image src="/images/logos/S@S_Logo_Mark_RGB.svg" alt="Software@Scale Logo" width={80} height={80} priority />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold text-primary">Software@Scale Wordo</CardTitle>
+            <CardTitle className="text-3xl font-bold text-primary">Software@Scale Games</CardTitle>
             <CardDescription className="mt-2">
               {step.type === 'username' && 'Enter your name to get started'}
               {step.type === 'set-password' && step.isNew && 'Create a password for your new account'}

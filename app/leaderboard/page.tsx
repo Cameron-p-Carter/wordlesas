@@ -134,7 +134,7 @@ export default function LeaderboardPage() {
           <div className="flex h-20 justify-between">
             <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               <Image src="/images/logos/S@S_Logo_Mark_RGB.svg" alt="Software@Scale Logo" width={50} height={50} priority />
-              <h1 className="text-xl font-bold text-primary">Software@Scale Wordo</h1>
+              <h1 className="text-xl font-bold text-primary">Software@Scale Games</h1>
             </Link>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground">Welcome, <span className="font-semibold text-foreground">{user.name}</span></span>

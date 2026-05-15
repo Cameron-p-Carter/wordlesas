@@ -14,10 +14,11 @@ export async function POST(request: NextRequest) {
 
   const db = getDb();
   const name = username.trim();
+  const normalizedUsername = name.toLowerCase();
 
   const { rows: existing } = await db.query(
     `SELECT id FROM "user" WHERE username = $1`,
-    [name]
+    [normalizedUsername]
   );
   if (existing.length > 0) {
     return NextResponse.json({ error: 'Username already taken' }, { status: 409 });
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   await db.query(
     `INSERT INTO "user" (id, name, username, "isAdmin", "createdAt", "updatedAt")
      VALUES ($1, $2, $3, false, NOW(), NOW())`,
-    [userId, name, name]
+    [userId, name, normalizedUsername]
   );
 
   const hash = await bcrypt.hash(password, 10);
