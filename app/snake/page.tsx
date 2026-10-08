@@ -54,12 +54,13 @@ export default function SnakePage() {
 
     setGameState({ status: 'finished', foodEaten });
 
+    // userId is no longer sent — the server derives it from the session cookie
     await fetch('/api/snake/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user!.id, gameId, foodEaten }),
+      body: JSON.stringify({ gameId, foodEaten }),
     });
-  }, [gameState, user]);
+  }, [gameState]);
 
   if (loading || gameState.status === 'loading') {
     return (

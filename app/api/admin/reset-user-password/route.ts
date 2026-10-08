@@ -13,10 +13,22 @@ export async function POST(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
 
   const db = getDb();
+
   await db.query(
     `DELETE FROM account WHERE "userId" = $1 AND "providerId" = 'credential'`,
     [userId]
   );
 
-  return NextResponse.json({ success: true });
+  // Generate a one-time token valid for 30 minutes
+  const tokenBytes = new Uint8Array(32);
+  crypto.getRandomValues(tokenBytes);
+  const token = Buffer.from(tokenBytes).toString('hex');
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  await db.query(
+    `UPDATE "user" SET "resetToken" = $1, "resetTokenExpiresAt" = $2 WHERE id = $3`,
+    [token, expiresAt, userId]
+  );
+
+  return NextResponse.json({ success: true, resetToken: token });
 }

@@ -51,3 +51,31 @@ export type SnakeScore = {
   food_eaten: number;
   completed_at: string;
 };
+
+export type ConnectionsDifficulty = 'yellow' | 'green' | 'blue' | 'purple';
+
+export type ConnectionsGroup = {
+  label: string;
+  difficulty: ConnectionsDifficulty;
+  words: string[];
+};
+
+export type ConnectionsGame = {
+  id: string;
+  groups: ConnectionsGroup[];
+  is_active: boolean;
+  created_at: string;
+};
+
+export type ConnectionsScore = {
+  id: string;
+  user_id: string;
+  connections_game_id: string;
+  mistakes: number;
+  solved: number[];
+  guesses: string[][];
+  points: number;
+  won: boolean;
+  is_complete: boolean;
+  completed_at: string;
+};

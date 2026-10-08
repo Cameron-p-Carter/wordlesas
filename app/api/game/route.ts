@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -43,7 +44,7 @@ function evaluateGuess(guess: string, targetWord: string): CellData[] {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  const requestedUserId = searchParams.get('userId');
 
   const { data: activeGame, error: gameError } = await supabase
     .from('games')
@@ -55,9 +56,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'No active game' }, { status: 404 });
   }
 
-  if (!userId) {
+  if (!requestedUserId) {
     return NextResponse.json({ game: activeGame });
   }
+
+  // Require a valid session and verify it belongs to the requesting user
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user || session.user.id !== requestedUserId) {
+    return NextResponse.json({ game: activeGame });
+  }
+
+  const userId = session.user.id;
 
   const { data: existingScore } = await supabase
     .from('scores')
@@ -70,7 +79,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ game: activeGame });
   }
 
-  // User already played — fetch the word only on the server to reconstruct evaluations
   const { data: gameWithWord } = await supabase
     .from('games')
     .select('word')
@@ -82,6 +90,15 @@ export async function GET(request: NextRequest) {
         evaluateGuess(guess, gameWithWord.word)
       )
     : [];
+
+  if (!existingScore.is_complete) {
+    return NextResponse.json({
+      game: activeGame,
+      inProgress: true,
+      guesses: evaluatedGuesses,
+      guessStrings: existingScore.guesses,
+    });
+  }
 
   return NextResponse.json({
     game: activeGame,

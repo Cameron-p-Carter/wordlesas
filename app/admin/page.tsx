@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabase, Game, SnakeGame } from '@/lib/supabase';
+import { supabase, Game, SnakeGame, ConnectionsGame, ConnectionsDifficulty } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,15 +19,39 @@ type AdminUser = {
   createdAt: string;
 };
 
+const CONNECTION_COLORS: { key: ConnectionsDifficulty; label: string; swatch: string }[] = [
+  { key: 'yellow', label: 'Yellow (easiest)', swatch: 'bg-[#f9df6d]' },
+  { key: 'green', label: 'Green', swatch: 'bg-[#a0c35a]' },
+  { key: 'blue', label: 'Blue', swatch: 'bg-[#b0c4ef]' },
+  { key: 'purple', label: 'Purple (trickiest)', swatch: 'bg-[#ba81c5]' },
+];
+
+type ConnGroupDraft = { difficulty: ConnectionsDifficulty; label: string; wordsText: string };
+
+const emptyConnGroups = (): ConnGroupDraft[] =>
+  CONNECTION_COLORS.map((c) => ({ difficulty: c.key, label: '', wordsText: '' }));
+
+async function adminPost(path: string, body: object): Promise<{ ok: boolean; data: any }> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [snakeGames, setSnakeGames] = useState<SnakeGame[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [connectionsGames, setConnectionsGames] = useState<ConnectionsGame[]>([]);
+  const [connGroups, setConnGroups] = useState<ConnGroupDraft[]>(emptyConnGroups());
   const [newWord, setNewWord] = useState('');
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'games' | 'snake' | 'users'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'snake' | 'connections' | 'users'>('games');
 
   useEffect(() => {
     if (!loading && (!user || !user.isAdmin)) {
@@ -50,6 +74,12 @@ export default function AdminPage() {
       .order('created_at', { ascending: false });
     if (snakeData) setSnakeGames(snakeData);
 
+    const { data: connectionsData } = await supabase
+      .from('connections_games')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (connectionsData) setConnectionsGames(connectionsData);
+
     const { data: usersData } = await supabase
       .from('user')
       .select('*')
@@ -59,112 +89,116 @@ export default function AdminPage() {
 
   const createGame = async () => {
     if (newWord.length !== 5) { setMessage('Word must be exactly 5 letters'); return; }
-    try {
-      const { error } = await supabase.from('games').insert({ word: newWord.toUpperCase(), is_active: false });
-      if (error) throw error;
-      setMessage('Game created successfully!');
-      setNewWord('');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const { ok, data } = await adminPost('/api/admin/games', { action: 'create', word: newWord });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('Game created successfully!');
+    setNewWord('');
+    loadData();
   };
 
   const toggleGameActive = async (gameId: string, currentState: boolean) => {
-    try {
-      if (!currentState) await supabase.from('games').update({ is_active: false }).neq('id', gameId);
-      const { error } = await supabase.from('games').update({ is_active: !currentState }).eq('id', gameId);
-      if (error) throw error;
-      setMessage(currentState ? 'Game deactivated' : 'Game activated!');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const action = currentState ? 'deactivate' : 'activate';
+    const { ok, data } = await adminPost('/api/admin/games', { action, gameId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage(currentState ? 'Game deactivated' : 'Game activated!');
+    loadData();
   };
 
   const deleteGame = async (gameId: string) => {
     if (!confirm('Delete this game? This will also delete all scores.')) return;
-    try {
-      const { error } = await supabase.from('games').delete().eq('id', gameId);
-      if (error) throw error;
-      setMessage('Game deleted');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const { ok, data } = await adminPost('/api/admin/games', { action: 'delete', gameId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('Game deleted');
+    loadData();
   };
 
   const createSnakeSession = async () => {
-    try {
-      const { error } = await supabase.from('snake_games').insert({ is_active: false });
-      if (error) throw error;
-      setMessage('Snake session created!');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const { ok, data } = await adminPost('/api/admin/snake', { action: 'create' });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('Snake session created!');
+    loadData();
   };
 
   const toggleSnakeActive = async (sessionId: string, currentState: boolean) => {
-    try {
-      if (!currentState) await supabase.from('snake_games').update({ is_active: false }).neq('id', sessionId);
-      const { error } = await supabase.from('snake_games').update({ is_active: !currentState }).eq('id', sessionId);
-      if (error) throw error;
-      setMessage(currentState ? 'Snake session deactivated' : 'Snake session activated!');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const action = currentState ? 'deactivate' : 'activate';
+    const { ok, data } = await adminPost('/api/admin/snake', { action, sessionId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage(currentState ? 'Snake session deactivated' : 'Snake session activated!');
+    loadData();
   };
 
   const deleteSnakeSession = async (sessionId: string) => {
     if (!confirm('Delete this snake session? This will also delete all scores.')) return;
-    try {
-      const { error } = await supabase.from('snake_games').delete().eq('id', sessionId);
-      if (error) throw error;
-      setMessage('Snake session deleted');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
+    const { ok, data } = await adminPost('/api/admin/snake', { action: 'delete', sessionId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('Snake session deleted');
+    loadData();
+  };
+
+  const createConnections = async () => {
+    const groups = connGroups.map((g) => ({
+      difficulty: g.difficulty,
+      label: g.label.trim(),
+      words: g.wordsText.split(',').map((w) => w.trim()).filter(Boolean),
+    }));
+
+    // Light client-side check; the server re-validates authoritatively.
+    for (const g of groups) {
+      if (!g.label) { setMessage('Every group needs a category label'); return; }
+      if (g.words.length !== 4) { setMessage(`Group "${g.label || g.difficulty}" needs exactly 4 words (comma-separated)`); return; }
     }
+    const allWords = groups.flatMap((g) => g.words.map((w) => w.toUpperCase()));
+    if (new Set(allWords).size !== 16) { setMessage('All 16 words must be unique'); return; }
+
+    const { ok, data } = await adminPost('/api/admin/connections', { action: 'create', groups });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('Connections puzzle created!');
+    setConnGroups(emptyConnGroups());
+    loadData();
+  };
+
+  const toggleConnectionsActive = async (gameId: string, currentState: boolean) => {
+    const action = currentState ? 'deactivate' : 'activate';
+    const { ok, data } = await adminPost('/api/admin/connections', { action, gameId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage(currentState ? 'Puzzle deactivated' : 'Puzzle activated!');
+    loadData();
+  };
+
+  const deleteConnections = async (gameId: string) => {
+    if (!confirm('Delete this puzzle? This will also delete all scores.')) return;
+    const { ok, data } = await adminPost('/api/admin/connections', { action: 'delete', gameId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('Puzzle deleted');
+    loadData();
   };
 
   const toggleUserAdmin = async (userId: string, currentState: boolean) => {
-    try {
-      const { error } = await supabase.from('user').update({ isAdmin: !currentState }).eq('id', userId);
-      if (error) throw error;
-      setMessage('User updated');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const { ok, data } = await adminPost('/api/admin/users', {
+      action: 'toggleAdmin',
+      userId,
+      isAdmin: !currentState,
+    });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('User updated');
+    loadData();
   };
 
   const resetUserPassword = async (userId: string, userName: string) => {
-    if (!confirm(`Reset password for ${userName}? They will be prompted to set a new one on next login.`)) return;
-    try {
-      const res = await fetch('/api/admin/reset-user-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      setMessage(`Password reset for ${userName}`);
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    if (!confirm(`Reset password for ${userName}? They will need a one-time token to set a new one.`)) return;
+    const { ok, data } = await adminPost('/api/admin/reset-user-password', { userId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage(
+      `Password reset for ${userName}. Give them this one-time token (valid 30 min): ${data.resetToken}`
+    );
   };
 
   const deleteUser = async (userId: string) => {
     if (!confirm('Delete this user? This will also delete all their scores.')) return;
-    try {
-      const { error } = await supabase.from('user').delete().eq('id', userId);
-      if (error) throw error;
-      setMessage('User deleted');
-      loadData();
-    } catch (error: any) {
-      setMessage('Error: ' + error.message);
-    }
+    const { ok, data } = await adminPost('/api/admin/users', { action: 'delete', userId });
+    if (!ok) { setMessage('Error: ' + data.error); return; }
+    setMessage('User deleted');
+    loadData();
   };
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><div>Loading...</div></div>;
@@ -193,16 +227,16 @@ export default function AdminPage() {
         {message && (
           <Card className="mb-6 border-primary/20 bg-primary/5">
             <CardContent className="py-4">
-              <p className="text-primary font-medium">{message}</p>
+              <p className="text-primary font-medium break-all">{message}</p>
             </CardContent>
           </Card>
         )}
 
         <div className="mb-6 flex space-x-2">
-          {(['games', 'snake', 'users'] as const).map((tab) => (
+          {(['games', 'snake', 'connections', 'users'] as const).map((tab) => (
             <Button key={tab} onClick={() => setActiveTab(tab)}
               variant={activeTab === tab ? 'default' : 'outline'} className="px-6 capitalize">
-              {tab === 'games' ? 'Wordo Games' : tab === 'snake' ? 'Snake Sessions' : 'Users'}
+              {tab === 'games' ? 'Wordo Games' : tab === 'snake' ? 'Snake Sessions' : tab === 'connections' ? 'Connections' : 'Users'}
             </Button>
           ))}
         </div>
@@ -280,6 +314,75 @@ export default function AdminPage() {
                     </div>
                   ))}
                   {snakeGames.length === 0 && <p className="text-muted-foreground text-sm">No sessions yet.</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'connections' && (
+          <div className="space-y-6">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl">Create Connections Puzzle</CardTitle>
+                <CardDescription>
+                  Fill in all four groups. Each group needs a category label and exactly 4 words
+                  (comma-separated). All 16 words must be unique.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {connGroups.map((g, i) => (
+                  <div key={g.difficulty} className="space-y-2 rounded-lg border p-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block h-4 w-4 rounded ${CONNECTION_COLORS[i].swatch}`} />
+                      <Label className="font-semibold">{CONNECTION_COLORS[i].label}</Label>
+                    </div>
+                    <Input
+                      type="text"
+                      value={g.label}
+                      onChange={(e) =>
+                        setConnGroups((prev) => prev.map((row, idx) => (idx === i ? { ...row, label: e.target.value } : row)))
+                      }
+                      placeholder="Category label (e.g. TYPES OF BASS)"
+                      className="h-11"
+                    />
+                    <Input
+                      type="text"
+                      value={g.wordsText}
+                      onChange={(e) =>
+                        setConnGroups((prev) => prev.map((row, idx) => (idx === i ? { ...row, wordsText: e.target.value } : row)))
+                      }
+                      placeholder="4 words, comma-separated (e.g. LARGEMOUTH, DOUBLE, GUITAR, DRUM)"
+                      className="h-11"
+                    />
+                  </div>
+                ))}
+                <Button onClick={createConnections} size="lg" className="px-8">Create Puzzle</Button>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg">
+              <CardHeader><CardTitle className="text-2xl">All Puzzles</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {connectionsGames.map((puzzle) => (
+                    <div key={puzzle.id} className="flex items-center justify-between border-b pb-4 last:border-0">
+                      <div>
+                        <div className="text-sm font-medium">
+                          {puzzle.groups.map((g) => g.label).join(' · ')}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Created: {new Date(puzzle.created_at).toLocaleDateString()}</div>
+                        {puzzle.is_active && <span className="inline-block mt-1 rounded bg-secondary/20 px-2 py-1 text-xs font-semibold text-secondary">ACTIVE</span>}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={() => toggleConnectionsActive(puzzle.id, puzzle.is_active)} variant={puzzle.is_active ? 'destructive' : 'secondary'} size="sm">
+                          {puzzle.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button onClick={() => deleteConnections(puzzle.id)} variant="destructive" size="sm">Delete</Button>
+                      </div>
+                    </div>
+                  ))}
+                  {connectionsGames.length === 0 && <p className="text-muted-foreground text-sm">No puzzles yet.</p>}
                 </div>
               </CardContent>
             </Card>

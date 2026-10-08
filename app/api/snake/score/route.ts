@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -7,14 +9,16 @@ const supabase = createClient(
 );
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { userId, gameId, foodEaten } = body as {
-    userId: string;
-    gameId: string;
-    foodEaten: number;
-  };
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  if (!userId || !gameId || foodEaten === undefined) {
+  const body = await request.json();
+  const { gameId, foodEaten } = body as { gameId: string; foodEaten: number };
+  const userId = session.user.id;
+
+  if (!gameId || foodEaten === undefined) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
@@ -32,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Game is not active' }, { status: 400 });
   }
 
-  const { error } = await supabase.from('snake_scores').insert({
+  const { error } = await supabaseAdmin.from('snake_scores').insert({
     user_id: userId,
     snake_game_id: gameId,
     food_eaten: foodEaten,

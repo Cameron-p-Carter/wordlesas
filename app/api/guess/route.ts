@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,18 +44,19 @@ function evaluateGuess(guess: string, targetWord: string): CellData[] {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { guess, userId, gameId, previousGuesses } = body as {
-    guess: string;
-    userId: string;
-    gameId: string;
-    previousGuesses: string[];
-  };
+  // Verify session — userId always comes from the session, never the client
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-  if (!guess || !userId || !gameId) {
+  const body = await request.json();
+  const { guess, gameId } = body as { guess: string; gameId: string };
+
+  if (!guess || !gameId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
-
   if (guess.length !== 5) {
     return NextResponse.json({ error: 'Guess must be 5 letters' }, { status: 400 });
   }
@@ -68,9 +71,25 @@ export async function POST(request: NextRequest) {
   if (gameError || !game) {
     return NextResponse.json({ error: 'Game not found' }, { status: 404 });
   }
-
   if (!game.is_active) {
     return NextResponse.json({ error: 'Game is not active' }, { status: 400 });
+  }
+
+  // Load server-side guess history — do not trust client-supplied previous guesses
+  const { data: existingScore } = await supabaseAdmin
+    .from('scores')
+    .select('guesses, is_complete')
+    .eq('user_id', userId)
+    .eq('game_id', gameId)
+    .single();
+
+  if (existingScore?.is_complete) {
+    return NextResponse.json({ error: 'You have already completed this game' }, { status: 409 });
+  }
+
+  const previousGuesses: string[] = existingScore?.guesses ?? [];
+  if (previousGuesses.length >= 5) {
+    return NextResponse.json({ error: 'Maximum guesses reached' }, { status: 400 });
   }
 
   const evaluation = evaluateGuess(guess, game.word);
@@ -79,31 +98,30 @@ export async function POST(request: NextRequest) {
   const isLastGuess = allGuesses.length === 5;
   const gameOver = isCorrect || isLastGuess;
 
-  if (gameOver) {
-    let points = 0;
-    if (isCorrect) {
-      points = 6 - allGuesses.length;
-    }
+  let points = 0;
+  if (gameOver && isCorrect) {
+    points = 6 - allGuesses.length;
+  }
 
-    try {
-      await supabase.from('scores').insert({
-        user_id: userId,
-        game_id: gameId,
-        guesses_count: allGuesses.length,
-        points,
-        guesses: allGuesses,
-        won: isCorrect,
-      });
-    } catch (err) {
-      console.error('Error saving score:', err);
-    }
+  // Upsert on every guess so the server always holds the canonical state
+  try {
+    await supabaseAdmin.from('scores').upsert({
+      user_id: userId,
+      game_id: gameId,
+      guesses_count: allGuesses.length,
+      points,
+      guesses: allGuesses,
+      won: isCorrect,
+      is_complete: gameOver,
+    }, { onConflict: 'user_id,game_id' });
+  } catch (err) {
+    console.error('Error saving score:', err);
   }
 
   return NextResponse.json({
     evaluation,
     won: isCorrect,
     gameOver,
-    // Only reveal the word when the game is over
     word: gameOver && !isCorrect ? game.word.toUpperCase() : undefined,
   });
 }

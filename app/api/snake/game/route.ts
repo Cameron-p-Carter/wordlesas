@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -8,7 +9,7 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  const requestedUserId = searchParams.get('userId');
 
   const { data: activeGame, error: gameError } = await supabase
     .from('snake_games')
@@ -20,14 +21,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'No active snake game' }, { status: 404 });
   }
 
-  if (!userId) {
+  if (!requestedUserId) {
+    return NextResponse.json({ game: activeGame });
+  }
+
+  // Require a valid session and verify it belongs to the requesting user
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user || session.user.id !== requestedUserId) {
     return NextResponse.json({ game: activeGame });
   }
 
   const { data: existingScore } = await supabase
     .from('snake_scores')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', session.user.id)
     .eq('snake_game_id', activeGame.id)
     .single();
 

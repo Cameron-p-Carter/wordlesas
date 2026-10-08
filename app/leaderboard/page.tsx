@@ -24,11 +24,20 @@ type SnakeEntry = {
   sessions_played: number;
 };
 
+type ConnectionsEntry = {
+  user_id: string;
+  user_name: string;
+  total_points: number;
+  games_played: number;
+  games_won: number;
+};
+
 type OverallEntry = {
   user_id: string;
   user_name: string;
   wordle_points: number;
   snake_points: number;
+  connections_points: number;
   total: number;
 };
 
@@ -36,7 +45,7 @@ function scaleSnake(food: number): number {
   return Math.min(Math.max(Math.floor((food - 5) / 5), 0), 5);
 }
 
-type Tab = 'overall' | 'wordle' | 'snake';
+type Tab = 'overall' | 'wordle' | 'snake' | 'connections';
 
 export default function LeaderboardPage() {
   const { user, loading } = useAuth();
@@ -44,6 +53,7 @@ export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overall');
   const [wordleBoard, setWordleBoard] = useState<WordleEntry[]>([]);
   const [snakeBoard, setSnakeBoard] = useState<SnakeEntry[]>([]);
+  const [connectionsBoard, setConnectionsBoard] = useState<ConnectionsEntry[]>([]);
   const [overallBoard, setOverallBoard] = useState<OverallEntry[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -54,9 +64,10 @@ export default function LeaderboardPage() {
 
   const loadLeaderboards = async () => {
     try {
-      const [{ data: scoresData }, { data: snakeData }] = await Promise.all([
-        supabase.from('scores').select('user_id, points, won, user(name)'),
+      const [{ data: scoresData }, { data: snakeData }, { data: connectionsData }] = await Promise.all([
+        supabase.from('scores').select('user_id, points, won, user(name)').eq('is_complete', true),
         supabase.from('snake_scores').select('user_id, food_eaten, user(name)'),
+        supabase.from('connections_scores').select('user_id, points, won, user(name)').eq('is_complete', true),
       ]);
 
       // --- Wordle ---
@@ -86,11 +97,25 @@ export default function LeaderboardPage() {
       });
       const snake = Array.from(snakeMap.values()).sort((a, b) => b.total_food - a.total_food);
 
+      // --- Connections ---
+      const connectionsMap = new Map<string, ConnectionsEntry>();
+      connectionsData?.forEach((s: any) => {
+        const id = s.user_id;
+        if (!connectionsMap.has(id)) {
+          connectionsMap.set(id, { user_id: id, user_name: s.user.name, total_points: 0, games_played: 0, games_won: 0 });
+        }
+        const e = connectionsMap.get(id)!;
+        e.total_points += s.points;
+        e.games_played += 1;
+        if (s.won) e.games_won += 1;
+      });
+      const connections = Array.from(connectionsMap.values()).sort((a, b) => b.total_points - a.total_points);
+
       // --- Overall (all users who have any score) ---
       const overallMap = new Map<string, OverallEntry>();
       const addUser = (id: string, name: string) => {
         if (!overallMap.has(id)) {
-          overallMap.set(id, { user_id: id, user_name: name, wordle_points: 0, snake_points: 0, total: 0 });
+          overallMap.set(id, { user_id: id, user_name: name, wordle_points: 0, snake_points: 0, connections_points: 0, total: 0 });
         }
       };
       wordleMap.forEach((e) => {
@@ -101,11 +126,16 @@ export default function LeaderboardPage() {
         addUser(e.user_id, e.user_name);
         overallMap.get(e.user_id)!.snake_points = scaleSnake(e.total_food);
       });
-      overallMap.forEach((e) => { e.total = e.wordle_points + e.snake_points; });
+      connectionsMap.forEach((e) => {
+        addUser(e.user_id, e.user_name);
+        overallMap.get(e.user_id)!.connections_points = e.total_points;
+      });
+      overallMap.forEach((e) => { e.total = e.wordle_points + e.snake_points + e.connections_points; });
       const overall = Array.from(overallMap.values()).sort((a, b) => b.total - a.total);
 
       setWordleBoard(wordle);
       setSnakeBoard(snake);
+      setConnectionsBoard(connections);
       setOverallBoard(overall);
       setLoadingData(false);
     } catch (error) {
@@ -151,14 +181,14 @@ export default function LeaderboardPage() {
             <CardTitle className="text-center text-4xl font-bold text-primary">Leaderboard</CardTitle>
             <CardDescription className="text-center text-base">See who's dominating the competition!</CardDescription>
             <div className="flex justify-center gap-2 pt-4">
-              {(['overall', 'wordle', 'snake'] as Tab[]).map((tab) => (
+              {(['overall', 'wordle', 'snake', 'connections'] as Tab[]).map((tab) => (
                 <Button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   variant={activeTab === tab ? 'default' : 'outline'}
                   className="capitalize"
                 >
-                  {tab === 'overall' ? '🏆 Overall' : tab === 'wordle' ? '🔤 Wordo' : '🐍 Snake'}
+                  {tab === 'overall' ? '🏆 Overall' : tab === 'wordle' ? '🔤 Wordo' : tab === 'snake' ? '🐍 Snake' : '🧩 Connections'}
                 </Button>
               ))}
             </div>
@@ -178,6 +208,7 @@ export default function LeaderboardPage() {
                           <th className="px-4 py-3 text-left">Player</th>
                           <th className="px-4 py-3 text-center">Wordo Pts</th>
                           <th className="px-4 py-3 text-center">Snake Pts</th>
+                          <th className="px-4 py-3 text-center">Conn Pts</th>
                           <th className="px-4 py-3 text-center">Total</th>
                         </tr>
                       </thead>
@@ -193,6 +224,7 @@ export default function LeaderboardPage() {
                             <td className="px-4 py-3">{e.user_name}{e.user_id === user.id && <span className="ml-2 text-sm text-primary">(You)</span>}</td>
                             <td className="px-4 py-3 text-center">{e.wordle_points}</td>
                             <td className="px-4 py-3 text-center">{e.snake_points}</td>
+                            <td className="px-4 py-3 text-center">{e.connections_points}</td>
                             <td className="px-4 py-3 text-center text-lg font-bold">{e.total}</td>
                           </tr>
                         ))}
@@ -203,8 +235,9 @@ export default function LeaderboardPage() {
                 <Card className="mt-6 bg-muted/50">
                   <CardHeader><CardTitle className="text-base">Scoring</CardTitle></CardHeader>
                   <CardContent className="text-sm space-y-1">
-                    <p>• Overall = Wordo points + Snake points (scaled)</p>
+                    <p>• Overall = Wordo points + Snake points (scaled) + Connections points</p>
                     <p>• Snake points: 0–9 food = 0 pts &nbsp;· 10–14 = 1 · 15–19 = 2 · 20–24 = 3 · 25–29 = 4 · 30+ = 5</p>
+                    <p>• Connections points: 0 mistakes = 5 &nbsp;· 1 = 4 · 2 = 3 · 3 = 2 · loss = 0</p>
                   </CardContent>
                 </Card>
               </>
@@ -289,6 +322,52 @@ export default function LeaderboardPage() {
                     </table>
                   </div>
                 )}
+              </>
+            )}
+
+            {activeTab === 'connections' && (
+              <>
+                {connectionsBoard.length === 0 ? (
+                  <p className="py-8 text-center text-muted-foreground">No Connections scores yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b-2">
+                          <th className="px-4 py-3 text-left">Rank</th>
+                          <th className="px-4 py-3 text-left">Player</th>
+                          <th className="px-4 py-3 text-center">Points</th>
+                          <th className="px-4 py-3 text-center">Played</th>
+                          <th className="px-4 py-3 text-center">Won</th>
+                          <th className="px-4 py-3 text-center">Win Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {connectionsBoard.map((e, i) => (
+                          <tr key={e.user_id} className={`border-b transition-colors ${e.user_id === user.id ? 'bg-primary/10 font-semibold' : 'hover:bg-muted/50'}`}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1">
+                                {medal(i) && <span className="text-2xl">{medal(i)}</span>}
+                                <span className="text-lg">{i + 1}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">{e.user_name}{e.user_id === user.id && <span className="ml-2 text-sm text-primary">(You)</span>}</td>
+                            <td className="px-4 py-3 text-center text-lg font-bold">{e.total_points}</td>
+                            <td className="px-4 py-3 text-center">{e.games_played}</td>
+                            <td className="px-4 py-3 text-center">{e.games_won}</td>
+                            <td className="px-4 py-3 text-center">{e.games_played > 0 ? ((e.games_won / e.games_played) * 100).toFixed(0) : 0}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <Card className="mt-6 bg-muted/50">
+                  <CardHeader><CardTitle className="text-base">Scoring</CardTitle></CardHeader>
+                  <CardContent className="text-sm space-y-1">
+                    <p>• 0 mistakes = 5 pts &nbsp;• 1 = 4 &nbsp;• 2 = 3 &nbsp;• 3 = 2 &nbsp;• Loss (4 mistakes) = 0</p>
+                  </CardContent>
+                </Card>
               </>
             )}
           </CardContent>

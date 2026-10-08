@@ -54,6 +54,10 @@ export default function WordleGame() {
         setGameOver(true);
         setWon(data.won);
         setMessage(data.won ? 'You already completed this word!' : 'You already attempted this word.');
+      } else if (data.inProgress) {
+        // Restore in-progress game state from the server
+        setGuesses(data.guesses);
+        setSubmittedGuessStrings(data.guessStrings ?? []);
       }
 
       setLoading(false);
@@ -90,9 +94,8 @@ export default function WordleGame() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           guess: currentGuess,
-          userId: user.id,
           gameId: game.id,
-          previousGuesses: submittedGuessStrings,
+          // userId and previousGuesses are derived server-side from the session
         }),
       });
 
@@ -193,14 +196,12 @@ export default function WordleGame() {
     if (i < guesses.length) {
       rows.push(guesses[i]);
     } else if (i === guesses.length) {
-      // Current guess row
       const currentRow: CellData[] = currentGuess.split('').map(letter => ({ letter, state: 'empty' as LetterState }));
       while (currentRow.length < 5) {
         currentRow.push({ letter: '', state: 'empty' });
       }
       rows.push(currentRow);
     } else {
-      // Empty rows
       rows.push(Array(5).fill({ letter: '', state: 'empty' }));
     }
   }
